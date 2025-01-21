@@ -45,15 +45,48 @@ export function registerRoutes(app: Express): Server {
       }
 
       try {
-        // Parse the JSON content from the AI response
-        const newsData = JSON.parse(content);
-        res.json(newsData);
+        // Extract the JSON part from the response
+        const jsonMatch = content.match(/```json\s*(\[[\s\S]*?\])\s*```/) || 
+                         content.match(/\[\s*{[\s\S]*}\s*\]/);
+
+        if (!jsonMatch) {
+          throw new Error("Could not find valid JSON in response");
+        }
+
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        const newsData = JSON.parse(jsonStr);
+
+        // Ensure each news item has a category
+        const processedNewsData = newsData.map((item: any) => {
+          if (!item.category) {
+            // Determine category based on content
+            const text = (item.title + " " + item.content).toLowerCase();
+            if (text.includes("quantum") || text.includes("ai") || text.includes("tech")) {
+              item.category = "Technology";
+            } else if (text.includes("climate") || text.includes("environment")) {
+              item.category = "Environment";
+            } else if (text.includes("health") || text.includes("medical")) {
+              item.category = "Health";
+            } else if (text.includes("space") || text.includes("research")) {
+              item.category = "Science";
+            } else if (text.includes("government") || text.includes("policy")) {
+              item.category = "Politics";
+            } else {
+              item.category = "Other";
+            }
+          }
+          return item;
+        });
+
+        res.json(processedNewsData);
       } catch (parseError) {
-        // If JSON parsing fails, return the raw content
+        console.error("Parse error:", parseError);
+        // If JSON parsing fails, structure the raw content as a single news item
         res.json([{
           title: "News Update",
           content: content,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          category: "Other"
         }]);
       }
     } catch (error) {
