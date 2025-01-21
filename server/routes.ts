@@ -22,39 +22,47 @@ export function registerRoutes(app: Express): Server {
           "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
         },
         body: JSON.stringify({
-          model: "deepseek-reasoner",
+          model: "deepseek-chat",
           messages: [
             {
               role: "user",
               content: prompt,
             },
           ],
+          temperature: 0.7,
+          max_tokens: 2000,
         }),
       });
 
       if (!response.ok) {
         const error = await response.text();
+        console.error("DeepSeek API error response:", error);
         throw new Error(`DeepSeek API error: ${error}`);
       }
 
       const data = await response.json();
-      const content = data.choices[0]?.message?.content;
+      console.log("DeepSeek API raw response:", JSON.stringify(data, null, 2));
+
+      const content = data.choices?.[0]?.message?.content;
 
       if (!content) {
+        console.error("Invalid DeepSeek API response structure:", data);
         throw new Error("Invalid response format from DeepSeek API");
       }
 
       try {
-        // Extract the JSON part from the response
-        const jsonMatch = content.match(/```json\s*(\[[\s\S]*?\])\s*```/) || 
-                         content.match(/\[\s*{[\s\S]*}\s*\]/);
+        // Extract the JSON part from the response using a more flexible regex
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
+                         content.match(/\[\s*{[\s\S]*?}\s*\]/);
 
         if (!jsonMatch) {
+          console.error("Could not find JSON in content:", content);
           throw new Error("Could not find valid JSON in response");
         }
 
         const jsonStr = jsonMatch[1] || jsonMatch[0];
-        const newsData = JSON.parse(jsonStr);
+        const cleanJsonStr = jsonStr.replace(/^```json\s*|\s*```$/g, '').trim();
+        const newsData = JSON.parse(cleanJsonStr);
 
         // Ensure each news item has a category
         const processedNewsData = newsData.map((item: any) => {
@@ -71,8 +79,6 @@ export function registerRoutes(app: Express): Server {
               item.category = "Science";
             } else if (text.includes("government") || text.includes("policy")) {
               item.category = "Politics";
-            } else {
-              item.category = "Other";
             }
           }
           return item;
@@ -80,14 +86,9 @@ export function registerRoutes(app: Express): Server {
 
         res.json(processedNewsData);
       } catch (parseError) {
-        console.error("Parse error:", parseError);
-        // If JSON parsing fails, structure the raw content as a single news item
-        res.json([{
-          title: "News Update",
-          content: content,
-          timestamp: new Date().toISOString(),
-          category: "Other"
-        }]);
+        console.error("Parse error:", parseError, "Content:", content);
+        // If JSON parsing fails, return a more informative error
+        throw new Error(`Failed to parse news data: ${parseError.message}`);
       }
     } catch (error) {
       console.error("News API error:", error);
