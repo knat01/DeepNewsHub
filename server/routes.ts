@@ -26,7 +26,7 @@ export function registerRoutes(app: Express): Server {
           messages: [
             {
               role: "user",
-              content: prompt + "\n\nFor each story, also include a source section with: \n- Source name (e.g., Reuters, Associated Press)\n- Source URL (the original article URL)",
+              content: prompt + "\n\nFor each story, include accurate source information:\n- Source name (e.g., Reuters, Associated Press, TechCrunch)\n- Source URL (provide the actual article URL from the source website)\n\nEnsure the source URLs are valid and match the source organization's domain.",
             },
           ],
           temperature: 0.7,
@@ -64,6 +64,21 @@ export function registerRoutes(app: Express): Server {
         const newsData = JSON.parse(cleanJsonStr);
 
         const processedNewsData = newsData.map((item: any) => {
+          // Validate and format source information
+          if (!item.source || !item.source.url || !item.source.name) {
+            const defaultSourceName = getDomainFromURL(item.source?.url) || "DeepSeek News";
+            item.source = {
+              name: item.source?.name || defaultSourceName,
+              url: item.source?.url || "#",
+            };
+          }
+
+          // Ensure URL is valid and has proper protocol
+          if (item.source.url !== "#" && !item.source.url.startsWith("http")) {
+            item.source.url = `https://${item.source.url}`;
+          }
+
+          // Determine category based on content
           if (!item.category) {
             const text = (item.title + " " + item.content).toLowerCase();
             if (text.includes("quantum") || text.includes("ai") || text.includes("tech")) {
@@ -79,21 +94,13 @@ export function registerRoutes(app: Express): Server {
             }
           }
 
-          // Add default source if not provided
-          if (!item.source) {
-            item.source = {
-              name: "DeepSeek News",
-              url: "#",
-            };
-          }
-
           return item;
         });
 
         res.json(processedNewsData);
-      } catch (parseError) {
+      } catch (parseError: unknown) {
         console.error("Parse error:", parseError, "Content:", content);
-        throw new Error(`Failed to parse news data: ${parseError.message}`);
+        throw new Error(`Failed to parse news data: ${(parseError as Error).message}`);
       }
     } catch (error) {
       console.error("News API error:", error);
@@ -105,4 +112,15 @@ export function registerRoutes(app: Express): Server {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Helper function to extract domain from URL
+function getDomainFromURL(url: string): string | null {
+  if (!url || url === "#") return null;
+  try {
+    const domain = new URL(url.startsWith("http") ? url : `https://${url}`).hostname;
+    return domain.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
 }
