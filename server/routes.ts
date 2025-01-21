@@ -26,7 +26,7 @@ export function registerRoutes(app: Express): Server {
           messages: [
             {
               role: "user",
-              content: prompt + "\n\nFor each story, include accurate source information:\n- Source name (e.g., Reuters, Associated Press, TechCrunch)\n- Source URL (provide the actual article URL from the source website)\n\nEnsure the source URLs are valid and match the source organization's domain.",
+              content: prompt + "\n\nFor each story, include accurate source information:\n- Source name (e.g., Reuters, Associated Press, TechCrunch)\n- Source URL (provide the actual, complete article URL where this news can be read. The URL should be specific to the article, not just the homepage of the news site. For example: 'https://www.reuters.com/technology/2025/01/21/specific-article-title' rather than just 'reuters.com')\n\nEnsure the source URLs:\n1. Are complete and valid URLs to specific articles\n2. Include the full path to the article\n3. Match the organization's actual domain\n4. Are accessible and public",
             },
           ],
           temperature: 0.7,
@@ -73,9 +73,21 @@ export function registerRoutes(app: Express): Server {
             };
           }
 
-          // Ensure URL is valid and has proper protocol
-          if (item.source.url !== "#" && !item.source.url.startsWith("http")) {
-            item.source.url = `https://${item.source.url}`;
+          // Validate URL format and structure
+          if (item.source.url !== "#") {
+            try {
+              const url = new URL(item.source.url.startsWith("http") ? item.source.url : `https://${item.source.url}`);
+              // Ensure URL has a path beyond just the domain
+              if (url.pathname === "/" || url.pathname === "") {
+                console.warn("Invalid article URL (no specific path):", item.source.url);
+                item.source.url = "#";
+              } else {
+                item.source.url = url.toString();
+              }
+            } catch (e) {
+              console.warn("Invalid URL:", item.source.url, e);
+              item.source.url = "#";
+            }
           }
 
           // Determine category based on content
