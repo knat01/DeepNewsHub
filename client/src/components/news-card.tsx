@@ -12,7 +12,8 @@ interface NewsCardProps {
 
 export default function NewsCard({ title, content, timestamp, category }: NewsCardProps) {
   const [showDetails, setShowDetails] = useState(false);
-  const previewContent = content.slice(0, 150) + (content.length > 150 ? "..." : "");
+  const paragraphs = content.split('\n').filter(p => p.trim().length > 0);
+  const previewContent = paragraphs[0].slice(0, 150) + (paragraphs[0].length > 150 ? "..." : "");
 
   // Extract key points from content
   const keyPoints = content
