@@ -26,7 +26,7 @@ export function registerRoutes(app: Express): Server {
           messages: [
             {
               role: "user",
-              content: prompt,
+              content: prompt + "\n\nFor each story, also include a source section with: \n- Source name (e.g., Reuters, Associated Press)\n- Source URL (the original article URL)",
             },
           ],
           temperature: 0.7,
@@ -51,7 +51,6 @@ export function registerRoutes(app: Express): Server {
       }
 
       try {
-        // Extract the JSON part from the response using a more flexible regex
         const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
                          content.match(/\[\s*{[\s\S]*?}\s*\]/);
 
@@ -64,10 +63,8 @@ export function registerRoutes(app: Express): Server {
         const cleanJsonStr = jsonStr.replace(/^```json\s*|\s*```$/g, '').trim();
         const newsData = JSON.parse(cleanJsonStr);
 
-        // Ensure each news item has a category
         const processedNewsData = newsData.map((item: any) => {
           if (!item.category) {
-            // Determine category based on content
             const text = (item.title + " " + item.content).toLowerCase();
             if (text.includes("quantum") || text.includes("ai") || text.includes("tech")) {
               item.category = "Technology";
@@ -81,13 +78,21 @@ export function registerRoutes(app: Express): Server {
               item.category = "Politics";
             }
           }
+
+          // Add default source if not provided
+          if (!item.source) {
+            item.source = {
+              name: "DeepSeek News",
+              url: "#",
+            };
+          }
+
           return item;
         });
 
         res.json(processedNewsData);
       } catch (parseError) {
         console.error("Parse error:", parseError, "Content:", content);
-        // If JSON parsing fails, return a more informative error
         throw new Error(`Failed to parse news data: ${parseError.message}`);
       }
     } catch (error) {

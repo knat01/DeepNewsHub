@@ -8,9 +8,13 @@ interface NewsCardProps {
   content: string;
   timestamp: string;
   category?: string;
+  source?: {
+    name: string;
+    url: string;
+  };
 }
 
-export default function NewsCard({ title, content, timestamp, category }: NewsCardProps) {
+export default function NewsCard({ title, content, timestamp, category, source }: NewsCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const previewContent = content.slice(0, 150) + (content.length > 150 ? "..." : "");
 
@@ -33,6 +37,9 @@ export default function NewsCard({ title, content, timestamp, category }: NewsCa
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">{previewContent}</p>
+          {source && (
+            <p className="mt-2 text-sm text-primary">Source: {source.name}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -42,6 +49,7 @@ export default function NewsCard({ title, content, timestamp, category }: NewsCa
         title={title}
         content={content}
         timestamp={timestamp}
+        source={source}
       />
     </>
   );
