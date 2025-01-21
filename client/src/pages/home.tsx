@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import NewsCard from "@/components/news-card";
 import LoadingSpinner from "@/components/loading-spinner";
+import { fetchNewsFromDeepSeek } from "@/lib/api";
 
 type NewsItem = {
   title: string;
@@ -17,13 +18,7 @@ export default function Home() {
   const { toast } = useToast();
 
   const { mutate: fetchNews, isPending } = useMutation({
-    mutationFn: async () => {
-      const response = await fetch("/api/news");
-      if (!response.ok) {
-        throw new Error("Failed to fetch news");
-      }
-      return response.json();
-    },
+    mutationFn: fetchNewsFromDeepSeek,
     onSuccess: (data) => {
       setNews(data);
     },

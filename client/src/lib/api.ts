@@ -1,6 +1,6 @@
 export async function fetchNewsFromDeepSeek() {
   const currentDate = new Date().toISOString().split('T')[0];
-  const prompt = `Please provide the top news headlines and summaries for ${currentDate}. Format the response as JSON with title, content, and timestamp fields.`;
+  const prompt = `Generate the top 5 news headlines for ${currentDate}. For each news item, provide a title, detailed content, and timestamp. Format the response as a JSON array where each object has the structure: {"title": "string", "content": "string", "timestamp": "ISO date string"}. Make the content informative and engaging.`;
 
   try {
     const response = await fetch("/api/news", {
@@ -12,11 +12,14 @@ export async function fetchNewsFromDeepSeek() {
     });
 
     if (!response.ok) {
-      throw new Error("Failed to fetch news");
+      const errorText = await response.text();
+      throw new Error(errorText);
     }
 
-    return response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : [data];
   } catch (error) {
+    console.error("Error fetching news:", error);
     throw new Error("Error fetching news: " + (error as Error).message);
   }
 }
