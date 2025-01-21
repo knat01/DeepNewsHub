@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Newspaper, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,10 @@ type NewsItem = {
   content: string;
   timestamp: string;
   category?: string;
+  source?: {
+    name: string;
+    url: string;
+  };
 };
 
 // Helper function to categorize news
@@ -29,22 +33,17 @@ function categorizeNews(news: NewsItem[]): Record<string, NewsItem[]> {
   };
 
   news.forEach(item => {
-    // Use the category provided by the API
     const category = item.category || "Other";
-
-    // Add to the appropriate category
     if (categorizedNews[category]) {
       categorizedNews[category].push(item);
     }
 
-    // Add to Featured if it's a breakthrough or major story
     const text = (item.title + " " + item.content).toLowerCase();
     if (text.includes("breakthrough") || text.includes("historic") || text.includes("first")) {
       categorizedNews["Featured"].push(item);
     }
   });
 
-  // Remove empty categories
   return Object.fromEntries(
     Object.entries(categorizedNews).filter(([_, items]) => items.length > 0)
   );
@@ -54,22 +53,34 @@ export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState("Featured");
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   const categorizedNews = categorizeNews(news);
   const categories = Object.keys(categorizedNews);
 
-  const { mutate: fetchNews, isPending } = useMutation({
+  const { mutate: fetchNews, isPending, isError } = useMutation({
     mutationFn: fetchNewsFromDeepSeek,
     onSuccess: (data) => {
       setNews(data);
       setActiveCategory("Featured");
+      setRetryCount(0); // Reset retry count on success
     },
     onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (retryCount < MAX_RETRIES) {
+        // Automatically retry on error
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => {
+          fetchNews();
+        }, 2000); // Wait 2 seconds before retrying
+      } else {
+        toast({
+          title: "Error",
+          description: "Unable to fetch news after multiple attempts. Please try again later.",
+          variant: "destructive",
+        });
+        setRetryCount(0);
+      }
     },
   });
 
@@ -102,7 +113,7 @@ export default function Home() {
         </div>
 
         {isPending ? (
-          <LoadingSpinner />
+          <LoadingSpinner isError={isError} />
         ) : news.length > 0 ? (
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
             <TabsList className="w-full justify-start mb-6 overflow-x-auto">
