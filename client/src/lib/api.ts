@@ -9,12 +9,7 @@ export async function fetchNewsFromDeepSeek() {
 
   For each story, provide:
   - A compelling title
-  - Detailed content (300-400 words) with multiple paragraphs covering:
-    * Main event details
-    * Background information
-    * Impact and implications
-    * Expert opinions or reactions
-    * Future outlook
+  - Detailed content (150-200 words)
   - An accurate timestamp
   - A specific category tag
 
@@ -26,7 +21,7 @@ export async function fetchNewsFromDeepSeek() {
     "category": "string" (one of: "Technology", "Politics", "Science", "Health", "Environment")
   }
 
-  Make stories diverse, informative, and engaging. Ensure proper paragraph breaks in content.`;
+  Make stories diverse, informative, and engaging.`;
 
   try {
     const response = await fetch("/api/news", {
