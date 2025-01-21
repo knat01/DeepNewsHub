@@ -1,46 +1,46 @@
-export async function fetchNewsFromDeepSeek() {
-  const currentDate = new Date().toISOString().split('T')[0];
-  const prompt = `Generate today's top news headlines (${currentDate}) across different categories:
-  - 2 Technology stories
-  - 2 Political stories
-  - 2 Science/Space stories
-  - 2 Health/Medical stories
-  - 2 Environmental stories
+// Create WebSocket connection
+let ws: WebSocket | null = null;
 
-  For each story, provide:
-  - A compelling title
-  - Detailed content (150-200 words)
-  - An accurate timestamp
-  - A specific category tag
-
-  Format as a JSON array with objects having this structure:
-  {
-    "title": "string",
-    "content": "string",
-    "timestamp": "ISO date string",
-    "category": "string" (one of: "Technology", "Politics", "Science", "Health", "Environment")
+export function setupNewsWebSocket(
+  onNewsBatch: (news: any[]) => void,
+  onError: (error: string) => void,
+  onComplete: () => void
+) {
+  if (ws) {
+    ws.close();
   }
 
-  Make stories diverse, informative, and engaging.`;
+  // Use the same host as the current page with the specific WebSocket path
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  ws = new WebSocket(`${protocol}//${window.location.host}/ws/news`);
 
-  try {
-    const response = await fetch("/api/news", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt }),
-    });
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText);
+    if (data.error) {
+      onError(data.error);
+    } else if (data.type === "news_batch") {
+      onNewsBatch(data.data);
+    } else if (data.type === "complete") {
+      onComplete();
     }
+  };
 
-    const data = await response.json();
-    return Array.isArray(data) ? data : [data];
-  } catch (error) {
-    console.error("Error fetching news:", error);
-    throw new Error("Error fetching news: " + (error as Error).message);
-  }
+  ws.onerror = () => {
+    onError("WebSocket connection error");
+  };
+
+  return {
+    fetchNews: () => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send("fetch_news");
+      } else {
+        onError("WebSocket not connected");
+      }
+    },
+    close: () => {
+      ws?.close();
+      ws = null;
+    }
+  };
 }

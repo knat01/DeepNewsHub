@@ -1,11 +1,10 @@
-import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react";
 import { Newspaper, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import NewsCard from "@/components/news-card";
 import LoadingSpinner from "@/components/loading-spinner";
-import { fetchNewsFromDeepSeek } from "@/lib/api";
+import { setupNewsWebSocket } from "@/lib/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type NewsItem = {
@@ -19,33 +18,18 @@ type NewsItem = {
   };
 };
 
-// Helper function to categorize news
 function categorizeNews(news: NewsItem[]): Record<string, NewsItem[]> {
-  const mainCategories = ["Technology", "Politics", "Science", "Health", "Environment"];
-
-  const categorizedNews: Record<string, NewsItem[]> = {
-    "Featured": [],
-    "Technology": [],
-    "Politics": [],
-    "Science": [],
-    "Health": [],
-    "Environment": [],
+  const categories = {
+    "Featured": news, // Featured now shows all articles
+    "Technology": news.filter(item => item.category === "Technology"),
+    "Politics": news.filter(item => item.category === "Politics"),
+    "Science": news.filter(item => item.category === "Science"),
+    "Health": news.filter(item => item.category === "Health"),
+    "Environment": news.filter(item => item.category === "Environment"),
   };
 
-  news.forEach(item => {
-    const category = item.category || "Other";
-    if (categorizedNews[category]) {
-      categorizedNews[category].push(item);
-    }
-
-    const text = (item.title + " " + item.content).toLowerCase();
-    if (text.includes("breakthrough") || text.includes("historic") || text.includes("first")) {
-      categorizedNews["Featured"].push(item);
-    }
-  });
-
   return Object.fromEntries(
-    Object.entries(categorizedNews).filter(([_, items]) => items.length > 0)
+    Object.entries(categories).filter(([_, items]) => items.length > 0)
   );
 }
 
@@ -53,36 +37,51 @@ export default function Home() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const { toast } = useToast();
   const [activeCategory, setActiveCategory] = useState("Featured");
+  const [isLoading, setIsLoading] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
 
+  const handleNewsBatch = useCallback((newBatch: NewsItem[]) => {
+    setNews(prev => [...prev, ...newBatch]);
+  }, []);
+
+  const handleError = useCallback((error: string) => {
+    console.error("News fetch error:", error);
+    if (retryCount < MAX_RETRIES) {
+      setRetryCount(prev => prev + 1);
+      setTimeout(fetchNews, 2000);
+    } else {
+      toast({
+        title: "Error",
+        description: "Unable to fetch news after multiple attempts. Please try again later.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      setRetryCount(0);
+    }
+  }, [retryCount, toast]);
+
+  const handleComplete = useCallback(() => {
+    setIsLoading(false);
+    setRetryCount(0);
+  }, []);
+
+  const [wsApi, setWsApi] = useState<{ fetchNews: () => void; close: () => void } | null>(null);
+
+  useEffect(() => {
+    const api = setupNewsWebSocket(handleNewsBatch, handleError, handleComplete);
+    setWsApi(api);
+    return () => api.close();
+  }, [handleNewsBatch, handleError, handleComplete]);
+
+  const fetchNews = useCallback(() => {
+    setNews([]);
+    setIsLoading(true);
+    wsApi?.fetchNews();
+  }, [wsApi]);
+
   const categorizedNews = categorizeNews(news);
   const categories = Object.keys(categorizedNews);
-
-  const { mutate: fetchNews, isPending, isError } = useMutation({
-    mutationFn: fetchNewsFromDeepSeek,
-    onSuccess: (data) => {
-      setNews(data);
-      setActiveCategory("Featured");
-      setRetryCount(0); // Reset retry count on success
-    },
-    onError: (error) => {
-      if (retryCount < MAX_RETRIES) {
-        // Automatically retry on error
-        setRetryCount(prev => prev + 1);
-        setTimeout(() => {
-          fetchNews();
-        }, 2000); // Wait 2 seconds before retrying
-      } else {
-        toast({
-          title: "Error",
-          description: "Unable to fetch news after multiple attempts. Please try again later.",
-          variant: "destructive",
-        });
-        setRetryCount(0);
-      }
-    },
-  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -94,11 +93,11 @@ export default function Home() {
           </p>
           <Button
             size="lg"
-            onClick={() => fetchNews()}
-            disabled={isPending}
+            onClick={fetchNews}
+            disabled={isLoading}
             className="h-16 px-8 text-lg"
           >
-            {isPending ? (
+            {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 Fetching News...
@@ -112,8 +111,8 @@ export default function Home() {
           </Button>
         </div>
 
-        {isPending ? (
-          <LoadingSpinner isError={isError} />
+        {isLoading && news.length === 0 ? (
+          <LoadingSpinner isError={retryCount > 0} />
         ) : news.length > 0 ? (
           <Tabs value={activeCategory} onValueChange={setActiveCategory}>
             <TabsList className="w-full justify-start mb-6 overflow-x-auto">
@@ -123,7 +122,7 @@ export default function Home() {
                   value={category}
                   className="px-4 py-2"
                 >
-                  {category}
+                  {category} ({categorizedNews[category].length})
                 </TabsTrigger>
               ))}
             </TabsList>
