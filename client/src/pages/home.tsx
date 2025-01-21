@@ -12,50 +12,35 @@ type NewsItem = {
   title: string;
   content: string;
   timestamp: string;
-  category?: string; // Added category property
+  category?: string;
 };
 
 // Helper function to categorize news
 function categorizeNews(news: NewsItem[]): Record<string, NewsItem[]> {
-  const categories = {
-    "Technology": ["quantum", "computing", "ai", "technology"],
-    "Science": ["research", "scientific", "study", "mars", "space"],
-    "Health": ["medical", "health", "drug", "treatment", "disease"],
-    "Environment": ["climate", "environmental", "energy", "sustainable"],
-    "Politics": ["government", "policy", "political", "international"],
-  };
+  const mainCategories = ["Technology", "Politics", "Science", "Health", "Environment"];
 
   const categorizedNews: Record<string, NewsItem[]> = {
     "Featured": [],
     "Technology": [],
+    "Politics": [],
     "Science": [],
     "Health": [],
     "Environment": [],
-    "Politics": [],
-    "Other": [],
   };
 
   news.forEach(item => {
+    // Use the category provided by the API
+    const category = item.category || "Other";
+
+    // Add to the appropriate category
+    if (categorizedNews[category]) {
+      categorizedNews[category].push(item);
+    }
+
+    // Add to Featured if it's a breakthrough or major story
     const text = (item.title + " " + item.content).toLowerCase();
-    let assigned = false;
-
-    // Assign to first matching category
-    for (const [category, keywords] of Object.entries(categories)) {
-      if (keywords.some(keyword => text.includes(keyword))) {
-        categorizedNews[category].push({...item, category});
-        assigned = true;
-        break;
-      }
-    }
-
-    // If no category matched, put in Other
-    if (!assigned) {
-      categorizedNews["Other"].push({...item, category: "Other"});
-    }
-
-    // Also add important news to Featured
     if (text.includes("breakthrough") || text.includes("historic") || text.includes("first")) {
-      categorizedNews["Featured"].push({...item, category: "Featured"});
+      categorizedNews["Featured"].push(item);
     }
   });
 

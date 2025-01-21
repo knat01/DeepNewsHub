@@ -1,6 +1,27 @@
 export async function fetchNewsFromDeepSeek() {
   const currentDate = new Date().toISOString().split('T')[0];
-  const prompt = `Generate the top 5 news headlines for ${currentDate}. For each news item, provide a title, detailed content, and timestamp. Format the response as a JSON array where each object has the structure: {"title": "string", "content": "string", "timestamp": "ISO date string"}. Make the content informative and engaging.`;
+  const prompt = `Generate today's top news headlines (${currentDate}) across different categories:
+  - 2 Technology stories
+  - 2 Political stories
+  - 2 Science/Space stories
+  - 2 Health/Medical stories
+  - 2 Environmental stories
+
+  For each story, provide:
+  - A compelling title
+  - Detailed content (150-200 words)
+  - An accurate timestamp
+  - A specific category tag
+
+  Format as a JSON array with objects having this structure:
+  {
+    "title": "string",
+    "content": "string",
+    "timestamp": "ISO date string",
+    "category": "string" (one of: "Technology", "Politics", "Science", "Health", "Environment")
+  }
+
+  Make stories diverse, informative, and engaging.`;
 
   try {
     const response = await fetch("/api/news", {
