@@ -8,15 +8,18 @@ interface NewsCardProps {
   content: string;
   timestamp: string;
   category?: string;
-  source?: {
-    name: string;
-    url: string;
-  };
 }
 
-export default function NewsCard({ title, content, timestamp, category, source }: NewsCardProps) {
+export default function NewsCard({ title, content, timestamp, category }: NewsCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const previewContent = content.slice(0, 150) + (content.length > 150 ? "..." : "");
+
+  // Extract key points from content
+  const keyPoints = content
+    .split(".")
+    .filter(sentence => sentence.trim().length > 20)
+    .slice(0, 1)
+    .map(point => point.trim() + ".");
 
   return (
     <>
@@ -36,9 +39,12 @@ export default function NewsCard({ title, content, timestamp, category, source }
           </time>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">{previewContent}</p>
-          {source && (
-            <p className="mt-2 text-sm text-primary">Source: {source.name}</p>
+          <p className="text-muted-foreground mb-4">{previewContent}</p>
+          {keyPoints.length > 0 && (
+            <div className="border-t pt-3">
+              <p className="text-sm font-medium text-primary">Key Takeaway:</p>
+              <p className="text-sm text-muted-foreground">{keyPoints[0]}</p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -49,7 +55,6 @@ export default function NewsCard({ title, content, timestamp, category, source }
         title={title}
         content={content}
         timestamp={timestamp}
-        source={source}
       />
     </>
   );
