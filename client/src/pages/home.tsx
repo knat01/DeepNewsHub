@@ -33,14 +33,13 @@ function categorizeNews(news: NewsItem[]): Record<string, NewsItem[]> {
   };
 
   news.forEach(item => {
+    // Add every article to Featured
+    categorizedNews["Featured"].push(item);
+
+    // Also add to its specific category if it exists
     const category = item.category || "Other";
     if (categorizedNews[category]) {
       categorizedNews[category].push(item);
-    }
-
-    const text = (item.title + " " + item.content).toLowerCase();
-    if (text.includes("breakthrough") || text.includes("historic") || text.includes("first")) {
-      categorizedNews["Featured"].push(item);
     }
   });
 
@@ -88,7 +87,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
         <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold tracking-tight">Real-Time News</h1>
+          <h1 className="text-4xl font-bold tracking-tight">Real-Time News with DeepSeek R1 Reasoning</h1>
           <p className="text-muted-foreground">
             Stay informed with the latest news and developments
           </p>
